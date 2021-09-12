@@ -25,7 +25,7 @@ requests_queue = Queue()
 """
 curl --header "Content-Type: application/json" \
   --request POST \
-  --data '{"context":"eleutherai", "top_p": 0.9, "temp": 0.75}' \
+  --data '{"context":"eleutherai", "top_p": 0.9, "temp": 0.75, "gen_tokens"：128, "n": 16}' \
   http://localhost:5000/complete
 """
 
@@ -58,7 +58,9 @@ def complete():
         requests_queue.put(({
                                 "context": content["context"],
                                 "top_p": float(content["top_p"]),
-                                "temp": float(content["temp"])
+                                "temp": float(content["temp"]),
+                                "gen_tokens": int(content["gen_tokens"]),
+                                "n": int(content["n"])
                             }, response_queue))
 
         return _corsify_actual_response(jsonify({"completion": response_queue.get()}))
@@ -136,59 +138,55 @@ if __name__ == "__main__":
         tokenizer = transformers.GPT2TokenizerFast.from_pretrained('gpt2')
 
         while True:
-            all_ctx = []
-            all_top_p = []
-            all_temp = []
-            all_q = []
-            while len(all_ctx) < total_batch:
-                try:
-                    o, q = requests_queue.get(block=False)
-                    all_ctx.append(o["context"])
-                    all_top_p.append(o["top_p"])
-                    all_temp.append(o["temp"])
-                    all_q.append(q)
-                except Empty:
-                    if len(all_ctx):
-                        break
-                    else:
-                        time.sleep(0.01)
+            try:
+                o, q = requests_queue.get(block=False)
+                n = o["n"]
+                context = o["context"]
+                top_p = ["top_p"]
+                temp = o["temp"]
+                gen_tokens = o["gen_tokens"]
 
-            start = time.time()
-            # while len(all_ctx) < total_batch:
-            #     all_ctx.append("whatever")
-            #     all_top_p.append(1)
-            #     all_temp.append(1)
+                all_ctx = n * [context]
+                all_top_p = n * [top_p]
+                all_temp = n * [temp]
+                all_q = n * [q]
+            except Empty:
+                if len(all_ctx):
+                    break
+                else:
+                    time.sleep(0.01)
 
-            all_tokenized = []
-            all_length = []
-            for ctx in all_ctx:
-                padded_tokens = np.zeros(seq).astype(np.uint32)
-                length = 0
+        start = time.time()
+        all_tokenized = []
+        all_length = []
+        for ctx in all_ctx:
+            padded_tokens = np.zeros(seq).astype(np.uint32)
+            length = 0
 
-                try:
-                    tokens = tokenizer.encode(ctx)
-                    provided_ctx = len(tokens)
-                    pad_amount = seq - provided_ctx
+            try:
+                tokens = tokenizer.encode(ctx)
+                provided_ctx = len(tokens)
+                pad_amount = seq - provided_ctx
 
-                    pad_amount = max(pad_amount, 0)
+                pad_amount = max(pad_amount, 0)
 
-                    padded_tokens = np.pad(tokens, ((pad_amount, 0),)).astype(np.uint32)[-seq:]
-                    length = len(tokens)
-                except:
-                    print("oops exception")
+                padded_tokens = np.pad(tokens, ((pad_amount, 0),)).astype(np.uint32)[-seq:]
+                length = len(tokens)
+            except:
+                print("oops exception")
 
-                all_tokenized.append(padded_tokens)
-                all_length.append(length)
+            all_tokenized.append(padded_tokens)
+            all_length.append(length)
 
-            output = network.generate(np.array(all_tokenized),
-                                      np.array(all_length),
-                                      256,
-                                      {
-                                          "top_p": np.array(all_top_p),
-                                          "temp": np.array(all_temp)
-                                      })
+        output = network.generate(np.array(all_tokenized),
+                                  np.array(all_length),
+                                  gen_tokens,
+                                  {
+                                      "top_p": np.array(all_top_p),
+                                      "temp": np.array(all_temp)
+                                  })
 
-            for o, q in zip(output[1][0][:, :, 0], all_q):
-                q.put(tokenizer.decode(o))
+        for o, q in zip(output[1][0][:, :, 0], all_q):
+            q.put(tokenizer.decode(o))
 
-            print(f"completion done in {time.time() - start:06}s")
+        print(f"completion done in {time.time() - start:06}s")
