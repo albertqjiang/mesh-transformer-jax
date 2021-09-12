@@ -154,10 +154,10 @@ if __name__ == "__main__":
                         time.sleep(0.01)
 
             start = time.time()
-            while len(all_ctx) < total_batch:
-                all_ctx.append("whatever")
-                all_top_p.append(1)
-                all_temp.append(1)
+            # while len(all_ctx) < total_batch:
+            #     all_ctx.append("whatever")
+            #     all_top_p.append(1)
+            #     all_temp.append(1)
 
             all_tokenized = []
             all_length = []
