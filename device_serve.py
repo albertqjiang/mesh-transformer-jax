@@ -138,6 +138,7 @@ if __name__ == "__main__":
         tokenizer = transformers.GPT2TokenizerFast.from_pretrained('gpt2')
 
         while True:
+            all_ctx = []
             try:
                 o, q = requests_queue.get(block=False)
                 n = o["n"]
