@@ -62,10 +62,13 @@ def complete():
                                 "gen_tokens": int(content["gen_tokens"]),
                                 "n": int(content["n"])
                             }, response_queue))
-        completions = []
-        while not response_queue.empty():
-            completions.append(response_queue.get())
-        return _corsify_actual_response(jsonify({"completion": completions}))
+
+        def get_all_completions(rq):
+            completions = []
+            while not rq.empty():
+                completions.append(rq.get())
+            return completions
+        return _corsify_actual_response(jsonify({"completion": get_all_completions()}))
     else:
         raise RuntimeError("Weird - don't know how to handle method {}".format(request.method))
 
