@@ -194,9 +194,13 @@ if __name__ == "__main__":
                                           "temp": np.array(all_temp)
                                       },
                                       return_logits=True)
+            print(len(output))
+            print(len(output[0]))
+            print(len(output[1]))
+            print(output[1][2])
             print(output[1][1])
             print(output[1][0][:, :, 0])
             for o, q in zip(output[1][0][:, :, 0], all_q):
-                q.put((tokenizer.decode(o), logit))
+                q.put(tokenizer.decode(o))
 
             print(f"completion done in {time.time() - start:06}s")
