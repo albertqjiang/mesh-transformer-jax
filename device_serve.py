@@ -64,7 +64,7 @@ def complete():
                             }, response_queue))
 
         completions = [response_queue.get()]
-        while response_queue.not_empty:
+        while not response_queue.empty():
             completions.append(response_queue.get())
 
         return _corsify_actual_response(jsonify({"completion": completions}))
