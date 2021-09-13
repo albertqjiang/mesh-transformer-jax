@@ -192,7 +192,8 @@ if __name__ == "__main__":
                                       {
                                           "top_p": np.array(all_top_p),
                                           "temp": np.array(all_temp)
-                                      })
+                                      },
+                                      return_logits=True)
 
             for o, q in zip(output[1][0][:, :, 0], all_q):
                 q.put(tokenizer.decode(o))
