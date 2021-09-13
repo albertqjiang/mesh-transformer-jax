@@ -68,7 +68,7 @@ def complete():
             while not rq.empty():
                 completions.append(rq.get())
             return completions
-        return _corsify_actual_response(jsonify({"completion": get_all_completions()}))
+        return _corsify_actual_response(jsonify({"completion": get_all_completions(response_queue)}))
     else:
         raise RuntimeError("Weird - don't know how to handle method {}".format(request.method))
 
