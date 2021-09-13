@@ -63,8 +63,7 @@ def complete():
                                 "n": int(content["n"])
                             }, response_queue))
 
-        response_queue.not_empty.wait()
-        completions = []
+        completions = [response_queue.get()]
         while response_queue.not_empty:
             completions.append(response_queue.get())
 
