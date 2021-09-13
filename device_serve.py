@@ -194,13 +194,12 @@ if __name__ == "__main__":
                                           "temp": np.array(all_temp)
                                       },
                                       return_logits=True)
-            print(len(output))
-            print(len(output[0]))
-            print(len(output[1]))
-            print(output[1][2])
-            print(output[1][1])
-            print(output[1][0][:, :, 0])
-            for o, q in zip(output[1][0][:, :, 0], all_q):
-                q.put(tokenizer.decode(o))
+
+            log_probs = np.squeeze(jax.nn.log_softmax(output[1][2], -1))
+            indices = output[1][0]
+            selected_log_probs = np.squeeze(np.take_along_axis(log_probs, indices, axis=2))
+
+            for o, q, slp in zip(output[1][0][:, :, 0], all_q, selected_log_probs):
+                q.put((tokenizer.decode(o), slp.tolist()))
 
             print(f"completion done in {time.time() - start:06}s")
