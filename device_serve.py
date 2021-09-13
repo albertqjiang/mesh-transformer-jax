@@ -143,7 +143,7 @@ if __name__ == "__main__":
                 o, q = requests_queue.get(block=False)
                 n = o["n"]
                 context = o["context"]
-                top_p = ["top_p"]
+                top_p = o["top_p"]
                 temp = o["temp"]
                 gen_tokens = o["gen_tokens"]
 
