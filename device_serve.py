@@ -157,37 +157,37 @@ if __name__ == "__main__":
                 else:
                     time.sleep(0.01)
 
-        start = time.time()
-        all_tokenized = []
-        all_length = []
-        for ctx in all_ctx:
-            padded_tokens = np.zeros(seq).astype(np.uint32)
-            length = 0
+            start = time.time()
+            all_tokenized = []
+            all_length = []
+            for ctx in all_ctx:
+                padded_tokens = np.zeros(seq).astype(np.uint32)
+                length = 0
 
-            try:
-                tokens = tokenizer.encode(ctx)
-                provided_ctx = len(tokens)
-                pad_amount = seq - provided_ctx
+                try:
+                    tokens = tokenizer.encode(ctx)
+                    provided_ctx = len(tokens)
+                    pad_amount = seq - provided_ctx
 
-                pad_amount = max(pad_amount, 0)
+                    pad_amount = max(pad_amount, 0)
 
-                padded_tokens = np.pad(tokens, ((pad_amount, 0),)).astype(np.uint32)[-seq:]
-                length = len(tokens)
-            except:
-                print("oops exception")
+                    padded_tokens = np.pad(tokens, ((pad_amount, 0),)).astype(np.uint32)[-seq:]
+                    length = len(tokens)
+                except:
+                    print("oops exception")
 
-            all_tokenized.append(padded_tokens)
-            all_length.append(length)
+                all_tokenized.append(padded_tokens)
+                all_length.append(length)
 
-        output = network.generate(np.array(all_tokenized),
-                                  np.array(all_length),
-                                  gen_tokens,
-                                  {
-                                      "top_p": np.array(all_top_p),
-                                      "temp": np.array(all_temp)
-                                  })
+            output = network.generate(np.array(all_tokenized),
+                                      np.array(all_length),
+                                      gen_tokens,
+                                      {
+                                          "top_p": np.array(all_top_p),
+                                          "temp": np.array(all_temp)
+                                      })
 
-        for o, q in zip(output[1][0][:, :, 0], all_q):
-            q.put(tokenizer.decode(o))
+            for o, q in zip(output[1][0][:, :, 0], all_q):
+                q.put(tokenizer.decode(o))
 
-        print(f"completion done in {time.time() - start:06}s")
+            print(f"completion done in {time.time() - start:06}s")
