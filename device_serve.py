@@ -25,7 +25,7 @@ requests_queue = Queue()
 """
 curl --header "Content-Type: application/json" \
   --request POST \
-  --data '{"context":"eleutherai", "top_p": 0.9, "temp": 0.75, "gen_tokens"：128, "n": 16}' \
+  --data '{"context":"eleutherai", "top_p": 0.9, "temp": 0.75, "gen_tokens": 128, "n": 8}' \
   http://localhost:5000/complete
 """
 
@@ -63,12 +63,12 @@ def complete():
                                 "n": int(content["n"])
                             }, response_queue))
 
-        def get_all_completions(rq):
-            completions = []
-            while not rq.empty():
-                completions.append(rq.get())
-            return completions
-        return _corsify_actual_response(jsonify({"completion": get_all_completions(response_queue)}))
+        response_queue.not_empty.wait()
+        completions = []
+        while response_queue.not_empty:
+            completions.append(response_queue.get())
+
+        return _corsify_actual_response(jsonify({"completion": completions}))
     else:
         raise RuntimeError("Weird - don't know how to handle method {}".format(request.method))
 
