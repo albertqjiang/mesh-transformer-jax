@@ -157,6 +157,9 @@ if __name__ == "__main__":
                 else:
                     time.sleep(0.01)
 
+            if not all_ctx:
+                continue
+
             start = time.time()
             all_tokenized = []
             all_length = []
