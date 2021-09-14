@@ -200,6 +200,7 @@ if __name__ == "__main__":
             selected_log_probs = np.squeeze(np.take_along_axis(log_probs, indices, axis=2))
 
             for o, q, slp in zip(output[1][0][:, :, 0], all_q, selected_log_probs):
-                q.put((tokenizer.decode(o), slp.tolist()))
+                q.put((tokenizer.convert_ids_to_tokens(o), slp.tolist()))
+                # q.put((tokenizer.decode(o), slp.tolist()))
 
             print(f"completion done in {time.time() - start:06}s")
