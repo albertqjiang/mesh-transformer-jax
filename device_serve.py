@@ -25,7 +25,7 @@ requests_queue = Queue()
 """
 curl --header "Content-Type: application/json" \
   --request POST \
-  --data '{"context":"eleutherai", "top_p": 0.9, "temp": 0.75}' \
+  --data '{"context":"eleutherai", "top_p": 0.9, "temp": 0.75, "gen_tokens": 128, "n": 8}' \
   http://localhost:5000/complete
 """
 
@@ -58,10 +58,16 @@ def complete():
         requests_queue.put(({
                                 "context": content["context"],
                                 "top_p": float(content["top_p"]),
-                                "temp": float(content["temp"])
+                                "temp": float(content["temp"]),
+                                "gen_tokens": int(content["gen_tokens"]),
+                                "n": int(content["n"])
                             }, response_queue))
 
-        return _corsify_actual_response(jsonify({"completion": response_queue.get()}))
+        completions = [response_queue.get()]
+        while not response_queue.empty():
+            completions.append(response_queue.get())
+
+        return _corsify_actual_response(jsonify({"completion": completions}))
     else:
         raise RuntimeError("Weird - don't know how to handle method {}".format(request.method))
 
@@ -137,28 +143,28 @@ if __name__ == "__main__":
 
         while True:
             all_ctx = []
-            all_top_p = []
-            all_temp = []
-            all_q = []
-            while len(all_ctx) < total_batch:
-                try:
-                    o, q = requests_queue.get(block=False)
-                    all_ctx.append(o["context"])
-                    all_top_p.append(o["top_p"])
-                    all_temp.append(o["temp"])
-                    all_q.append(q)
-                except Empty:
-                    if len(all_ctx):
-                        break
-                    else:
-                        time.sleep(0.01)
+            try:
+                o, q = requests_queue.get(block=False)
+                n = o["n"]
+                context = o["context"]
+                top_p = o["top_p"]
+                temp = o["temp"]
+                gen_tokens = o["gen_tokens"]
+
+                all_ctx = n * [context]
+                all_top_p = n * [top_p]
+                all_temp = n * [temp]
+                all_q = n * [q]
+            except Empty:
+                if len(all_ctx):
+                    break
+                else:
+                    time.sleep(0.01)
+
+            if not all_ctx:
+                continue
 
             start = time.time()
-            while len(all_ctx) < total_batch:
-                all_ctx.append("whatever")
-                all_top_p.append(1)
-                all_temp.append(1)
-
             all_tokenized = []
             all_length = []
             for ctx in all_ctx:
@@ -182,13 +188,19 @@ if __name__ == "__main__":
 
             output = network.generate(np.array(all_tokenized),
                                       np.array(all_length),
-                                      256,
+                                      gen_tokens,
                                       {
                                           "top_p": np.array(all_top_p),
                                           "temp": np.array(all_temp)
-                                      })
+                                      },
+                                      return_logits=True)
 
-            for o, q in zip(output[1][0][:, :, 0], all_q):
-                q.put(tokenizer.decode(o))
+            log_probs = np.squeeze(jax.nn.log_softmax(output[1][2], -1))
+            indices = output[1][0]
+            selected_log_probs = np.squeeze(np.take_along_axis(log_probs, indices, axis=2))
+
+            for o, q, slp in zip(output[1][0][:, :, 0], all_q, selected_log_probs):
+                q.put((tokenizer.convert_ids_to_tokens(o), slp.tolist()))
+                # q.put((tokenizer.decode(o), slp.tolist()))
 
             print(f"completion done in {time.time() - start:06}s")
