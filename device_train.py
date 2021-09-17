@@ -323,7 +323,7 @@ if __name__ == "__main__":
                     print(f"validation loss for step {step}, set {name}: {val_loss}, validation accuracy: {val_acc}")
 
                     wandb.log({f'val/loss_{name}': float(val_loss)}, step)
-                    wandb.log()
+                    wandb.log({f'val/acc_{name}': float(val_acc)}, step)
 
             if step == total_steps:
                 print("training completed!")
