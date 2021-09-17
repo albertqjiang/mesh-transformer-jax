@@ -25,7 +25,7 @@ requests_queue = Queue()
 """
 curl --header "Content-Type: application/json" \
   --request POST \
-  --data '{"context":"eleutherai", "top_p": 0.9, "temp": 0.75, "gen_tokens": 128, "n": 8}' \
+  --data '{"context":"eleutherai", "top_p": 1.0, "temp": 0.8, "gen_tokens": 64, "n": 8}' \
   http://localhost:5000/complete
 """
 
