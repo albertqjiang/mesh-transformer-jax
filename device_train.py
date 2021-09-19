@@ -130,7 +130,7 @@ def eval_step(network, data):
     out = network.eval(inputs)
     loss = out["loss"]
     correct = out['correct']
-    accuracy = out['accoracy']
+    accuracy = out['accuracy']
 
     return np.array(loss).mean(), np.array(correct).mean(), np.array(accuracy).mean()
 
