@@ -590,7 +590,9 @@ class ProjectionShard(hk.Module):
 
         correct = (0.0 == predicted_logits)
 
-        return loss, correct
+        accuracy = (jnp.argmax(logits, axis=-1) == jnp.argmax(gt_onehot, axis=-1))
+
+        return loss, correct, accuracy
 
 
 class Projection(hk.Module):

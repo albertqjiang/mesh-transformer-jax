@@ -62,13 +62,14 @@ class CausalTransformerShard(hk.Module):
         return hk.remat(self.proj.loss)(x, target, z_loss)
 
     def loss(self, ctx, tgt, z_loss=False, mask=0.0):
-        loss, correct = self.eval(ctx, tgt, float(z_loss), mask=mask)
+        loss, correct, accuracy = self.eval(ctx, tgt, float(z_loss), mask=mask)
 
         return {
             "loss": loss.mean(),
             "last_loss": loss[-1].mean(),
             "all_loss": loss,
-            "correct": correct
+            "correct": correct,
+            "accuracy": accuracy.mean()
         }
 
     def generate_initial(self, context, length):
