@@ -163,7 +163,6 @@ if __name__ == "__main__":
 
             if not all_ctx:
                 continue
-            print(contexts)
             start = time.time()
             all_tokenized = []
             all_length = []
@@ -199,13 +198,15 @@ if __name__ == "__main__":
             indices = output[1][0]
             selected_log_probs = np.squeeze(np.take_along_axis(log_probs, indices, axis=2))
 
-            for o, q, target in zip(output[1][0][:, :, 0], all_q, targets):
-                q.put(
+            q = all_q[0]
+            response = []
+            for o, target in zip(output[1][0][:, :, 0], targets):
+                response.append(
                     (
                         tokenizer.convert_ids_to_tokens(o),
                         tokenizer.convert_ids_to_tokens(tokenizer.encode(target))
-                    )
+                     )
                 )
-                # q.put((tokenizer.decode(o), slp.tolist()))
+            q.put(response)
 
             print(f"completion done in {time.time() - start:06}s")
