@@ -80,7 +80,7 @@ if __name__ == "__main__":
 
         if len(src_batch) == 8:
             response = requests.post(url,
-                                     data={"contexts": src_batch,
+                                     json={"contexts": src_batch,
                                            "targets": tgt_batch,
                                            "top_p": 0.0,
                                            "temp": 0.0,
