@@ -1,3 +1,4 @@
+import argparse
 import json
 import threading
 import time
@@ -15,8 +16,7 @@ import transformers
 from smart_open import open
 
 from mesh_transformer.util import clip_by_global_norm
-from device_serve import parse_args
-from flask import Flask
+from flask import Flask, request, make_response, jsonify
 app = Flask(__name__)
 
 requests_queue = Queue()
@@ -27,6 +27,57 @@ curl --header "Content-Type: application/json" \
   --data '{"contexts":["src1", "src2"], "targets": [tgt1, tgt2], "top_p": 1.0, "temp": 0.0, "gen_tokens": 64}' \
   http://localhost:5000/complete
 """
+
+
+def _build_cors_prelight_response():
+    response = make_response()
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add('Access-Control-Allow-Headers', "*")
+    response.headers.add('Access-Control-Allow-Methods', "*")
+    return response
+
+
+def _corsify_actual_response(response):
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    return response
+
+
+@app.route('/complete', methods=['POST', 'OPTIONS'])
+def complete():
+    if request.method == "OPTIONS":  # CORS preflight
+        return _build_cors_prelight_response()
+    elif request.method == "POST":  # The actual request following the preflight
+        content = request.json
+
+        if requests_queue.qsize() > 100:
+            return {"error": "queue full, try again later"}
+
+        response_queue = Queue()
+
+        requests_queue.put(({
+                                "context": content["context"],
+                                "top_p": float(content["top_p"]),
+                                "temp": float(content["temp"]),
+                                "gen_tokens": int(content["gen_tokens"]),
+                                "n": int(content["n"])
+                            }, response_queue))
+
+        completions = [response_queue.get()]
+        while not response_queue.empty():
+            completions.append(response_queue.get())
+
+        return _corsify_actual_response(jsonify({"completion": completions}))
+    else:
+        raise RuntimeError("Weird - don't know how to handle method {}".format(request.method))
+
+
+def parse_args():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, default=None, help="Config file location")
+
+    args = parser.parse_args()
+    return args
 
 if __name__ == "__main__":
     threading.Thread(target=app.run, kwargs={"port": 5000, "host": "0.0.0.0"}).start()
