@@ -66,7 +66,7 @@ if __name__ == "__main__":
         src2tgt[src_line.strip().replace("State:", "<ISA_OBS>") + " <ISA_ACT>"] = tgt_line.strip()
     # .replace("\\", "\\\\").replace("'", "\u0027").replace("\"", "\\\"")
 
-    src_selected = random.sample(list(src2tgt.keys()), k=16)
+    src_selected = random.sample(list(src2tgt.keys()), k=3000)
 
     total_correct_tokens, total_tokens = 0, 0
     total_correct_sequences, total_sequences = 0, 0
