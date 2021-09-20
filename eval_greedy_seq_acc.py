@@ -79,7 +79,7 @@ if __name__ == "__main__":
         tgt_batch.append(src2tgt[src])
 
         if len(src_batch) == 8:
-            response = requests.get(url,
+            response = requests.post(url,
                                     data={"contexts": src_batch,
                                           "targets": tgt_batch,
                                           "top_p": 0.0,
