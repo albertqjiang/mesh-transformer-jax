@@ -79,6 +79,7 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+
 if __name__ == "__main__":
     threading.Thread(target=app.run, kwargs={"port": 5000, "host": "0.0.0.0"}).start()
 
@@ -154,7 +155,6 @@ if __name__ == "__main__":
                 all_top_p = context_length * [top_p]
                 all_temp = context_length * [temp]
                 all_q = context_length * [q]
-                time.sleep(0.01)
             except Empty:
                 if len(all_ctx):
                     break
@@ -163,7 +163,7 @@ if __name__ == "__main__":
 
             if not all_ctx:
                 continue
-
+            print(contexts)
             start = time.time()
             all_tokenized = []
             all_length = []
@@ -200,7 +200,12 @@ if __name__ == "__main__":
             selected_log_probs = np.squeeze(np.take_along_axis(log_probs, indices, axis=2))
 
             for o, q, target in zip(output[1][0][:, :, 0], all_q, targets):
-                q.put((tokenizer.convert_ids_to_tokens(o), tokenizer.convert_ids_to_tokens(tokenizer.encode(target))))
+                q.put(
+                    (
+                        tokenizer.convert_ids_to_tokens(o),
+                        tokenizer.convert_ids_to_tokens(tokenizer.encode(target))
+                    )
+                )
                 # q.put((tokenizer.decode(o), slp.tolist()))
 
             print(f"completion done in {time.time() - start:06}s")
