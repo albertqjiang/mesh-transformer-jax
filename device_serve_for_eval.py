@@ -154,6 +154,7 @@ if __name__ == "__main__":
                 all_top_p = context_length * [top_p]
                 all_temp = context_length * [temp]
                 all_q = context_length * [q]
+                time.sleep(0.01)
             except Empty:
                 if len(all_ctx):
                     break
