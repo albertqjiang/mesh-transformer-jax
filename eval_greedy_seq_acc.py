@@ -97,7 +97,7 @@ if __name__ == "__main__":
             total_tokens += processed_response["total_tokens"]
             total_correct_sequences += processed_response["total_correct_sequences"]
             total_sequences += processed_response["total_sequences"]
-            tokens_lengths.extend(processed_response["token_lengths"])
+            tokens_lengths.extend(processed_response["tokens_lengths"])
     print("Sequence acc: {}".format(total_correct_sequences/total_sequences))
     print("Token acc: {}".format(total_correct_tokens/total_tokens))
     json.dump(tokens_lengths, open("token_lengths", "w"))
