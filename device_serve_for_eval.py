@@ -57,6 +57,7 @@ def complete():
         requests_queue.put(({
                                 "contexts": content["contexts"],
                                 "top_p": float(content["top_p"]),
+                                "targets": content["targets"],
                                 "temp": float(content["temp"]),
                                 "gen_tokens": int(content["gen_tokens"])
                             }, response_queue))
