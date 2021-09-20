@@ -55,11 +55,10 @@ def complete():
         response_queue = Queue()
 
         requests_queue.put(({
-                                "context": content["context"],
+                                "contexts": content["contexts"],
                                 "top_p": float(content["top_p"]),
                                 "temp": float(content["temp"]),
-                                "gen_tokens": int(content["gen_tokens"]),
-                                "n": int(content["n"])
+                                "gen_tokens": int(content["gen_tokens"])
                             }, response_queue))
 
         completions = [response_queue.get()]
