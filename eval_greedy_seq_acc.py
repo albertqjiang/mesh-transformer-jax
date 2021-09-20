@@ -87,7 +87,8 @@ if __name__ == "__main__":
                                            "gen_tokens": 64
                                            },
                                      headers=headers)
-            processed_response = process_response(response.json)
+            print(response)
+            processed_response = process_response(response.json())
 
             src_batch = []
             tgt_batch = []
