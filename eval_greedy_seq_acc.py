@@ -85,8 +85,8 @@ if __name__ == "__main__":
                                           "top_p": 0.0,
                                           "temp": 0.0,
                                           "gen_tokens": 64
-                                          }).json()
-            processed_response = process_response(response)
+                                          })
+            processed_response = process_response(response.json())
 
             src_batch = []
             tgt_batch = []
