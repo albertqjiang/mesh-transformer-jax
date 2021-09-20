@@ -43,7 +43,7 @@ def process_response(response):
     return {
         "total_correct_tokens": total_correct_tokens,
         "total_tokens": total_tokens,
-        "total_correct_sequences":total_correct_sequences,
+        "total_correct_sequences": total_correct_sequences,
         "total_sequences": total_sequences,
         "tokens_lengths": tokens_lengths
     }
@@ -52,7 +52,7 @@ def process_response(response):
 if __name__ == "__main__":
     random.seed(0)
     url = 'http://localhost:5000/complete'
-    headers = {'content-type': 'application/json'}
+    headers = {'Content-Type': 'application/json'}
     data_path = "/home/qj213/seq2seq/seq2seq_with_state"
     src_path = os.path.join(data_path, "val.src")
     tgt_path = os.path.join(data_path, "val.tgt")
