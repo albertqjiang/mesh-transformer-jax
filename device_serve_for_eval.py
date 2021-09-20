@@ -24,7 +24,7 @@ requests_queue = Queue()
 """
 curl --header "Content-Type: application/json" \
   --request POST \
-  --data '{"contexts":["src1", "src2"], "targets": [tgt1, tgt2], "top_p": 1.0, "temp": 0.0, "gen_tokens": 64}' \
+  --data '{"contexts":["src1", "src2"], "targets": [tgt1, tgt2], "top_p": 0.0, "temp": 0.0, "gen_tokens": 64}' \
   http://localhost:5000/complete
 """
 
