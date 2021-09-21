@@ -11,10 +11,10 @@ def process_response(response):
     tokens_lengths = []
 
     for src, tgt in completions:
-        src_tokens = list(map(
+        src_tokens = [x for x in list(map(
             lambda x: x.replace("\u0120", " ").replace("\\\\", "\\").replace("\u0027", "'").replace("\\\"", "\"").strip(),
             src
-        ))
+        )) if x]
         tgt_tokens = list(map(
             lambda x: x.replace("\u0120", " ").replace("\\\\", "\\").replace("\u0027", "'").replace("\\\"", "\"").strip(),
             tgt
