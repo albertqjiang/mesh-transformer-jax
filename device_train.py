@@ -108,9 +108,8 @@ def save(network, step, bucket, path, mp, aux=None, keep_n=3, delete_old=True):
 def train_step(network, data):
     src = data[:, :, :-1]
     tgt = data[:, :, 1:]
-    import pdb; pdb.set_trace()
-    separator = np.where(tgt == 14457)
-    endoftext = np.where(tgt == 50256)
+    separator = np.where(tgt == 14457, 1, 0)
+    endoftext = np.where(tgt == 50256, 1, 0)
     if separator[0] > endoftext[0]:
         separator = np.array([0], separator)
     if separator[-1] > endoftext[-1]:
