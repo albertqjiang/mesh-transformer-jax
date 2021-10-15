@@ -149,14 +149,13 @@ class CausalTransformer:
                     separator = jnp.array([0], separator)
                 if separator[-1] > endoftext[-1]:
                     endoftext = jnp.array(endoftext, [len(tgt)])
-                assert len(separator) == len(endoftext)
 
                 val_grad_fn = jax.value_and_grad(train_loss_fn, has_aux=True)
                 (loss, last_loss), grad = val_grad_fn(to_bf16(state["params"]), ctx, tgt, mask)
 
                 new_grad = jax.tree_multimap(lambda a, b: a + b, old_grad, grad)
                 gnorm = global_norm(grad)
-                return new_grad, (loss, last_loss, gnorm, mask)
+                return new_grad, (loss, last_loss, gnorm, (len(separator), len(endoftext)))
 
             if ctx.shape[0] == 1:
                 val_grad_fn = jax.value_and_grad(train_loss_fn, has_aux=True)
