@@ -16,7 +16,6 @@ import transformers
 from smart_open import open
 
 from mesh_transformer.util import clip_by_global_norm
-
 from flask import Flask, request, make_response, jsonify
 app = Flask(__name__)
 
@@ -25,7 +24,7 @@ requests_queue = Queue()
 """
 curl --header "Content-Type: application/json" \
   --request POST \
-  --data '{"context":"eleutherai", "top_p": 1.0, "temp": 0.8, "gen_tokens": 64, "n": 8}' \
+  --data '{"contexts":["src1", "src2"], "targets": [tgt1, tgt2], "top_p": 0.0, "temp": 0.0, "gen_tokens": 64}' \
   http://localhost:5000/complete
 """
 
@@ -56,11 +55,11 @@ def complete():
         response_queue = Queue()
 
         requests_queue.put(({
-                                "context": content["context"],
+                                "contexts": content["contexts"],
                                 "top_p": float(content["top_p"]),
+                                "targets": content["targets"],
                                 "temp": float(content["temp"]),
-                                "gen_tokens": int(content["gen_tokens"]),
-                                "n": int(content["n"])
+                                "gen_tokens": int(content["gen_tokens"])
                             }, response_queue))
 
         completions = [response_queue.get()]
@@ -145,16 +144,17 @@ if __name__ == "__main__":
             all_ctx = []
             try:
                 o, q = requests_queue.get(block=False)
-                n = o["n"]
-                context = o["context"]
+                contexts = o["contexts"]
+                targets = o["targets"]
+                context_length = len(contexts)
                 top_p = o["top_p"]
                 temp = o["temp"]
                 gen_tokens = o["gen_tokens"]
 
-                all_ctx = n * [context]
-                all_top_p = n * [top_p]
-                all_temp = n * [temp]
-                all_q = n * [q]
+                all_ctx = contexts
+                all_top_p = context_length * [top_p]
+                all_temp = context_length * [temp]
+                all_q = context_length * [q]
             except Empty:
                 if len(all_ctx):
                     break
@@ -163,7 +163,6 @@ if __name__ == "__main__":
 
             if not all_ctx:
                 continue
-
             start = time.time()
             all_tokenized = []
             all_length = []
@@ -199,8 +198,15 @@ if __name__ == "__main__":
             indices = output[1][0]
             selected_log_probs = np.squeeze(np.take_along_axis(log_probs, indices, axis=2))
 
-            for o, q, slp in zip(output[1][0][:, :, 0], all_q, selected_log_probs):
-                q.put((tokenizer.convert_ids_to_tokens(o), slp.tolist()))
-                # q.put((tokenizer.decode(o), slp.tolist()))
+            q = all_q[0]
+            response = []
+            for o, target in zip(output[1][0][:, :, 0], targets):
+                response.append(
+                    (
+                        tokenizer.convert_ids_to_tokens(o),
+                        tokenizer.convert_ids_to_tokens(tokenizer.encode(target))
+                     )
+                )
+            q.put(response)
 
             print(f"completion done in {time.time() - start:06}s")
