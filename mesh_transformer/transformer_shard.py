@@ -291,6 +291,7 @@ class CausalTransformer:
         # print("target", sample["target"])
         obs = jnp.transpose(sample["obs"], (1, 0, 2))
         target = jnp.transpose(sample["target"], (1, 0, 2))
+        mask = jnp.transpose(sample["mask"], (1, 0, 2))
 
         # print("train sample", obs.shape)
         # print("train target", target.shape)

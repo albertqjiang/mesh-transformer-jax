@@ -105,19 +105,35 @@ def save(network, step, bucket, path, mp, aux=None, keep_n=3, delete_old=True):
         json.dump(meta, f)
 
 
-def train_step(network, data):
-    src = data[:, :, :-1]
-    tgt = data[:, :, 1:]
-    separator = np.where(tgt == 14457, 1, 0)
-    endoftext = np.where(tgt == 50256, 1, 0)
+def find_real_target_mask(single_sequence):
+    separator = np.where(single_sequence == 14457)
+    endoftext = np.where(single_sequence == 50256)
     if separator[0] > endoftext[0]:
         separator = np.array([0], separator)
     if separator[-1] > endoftext[-1]:
-        endoftext = np.array(endoftext, [len(tgt)])
+        endoftext = np.array(endoftext, [len(single_sequence)])
+    assert len(separator) == len(endoftext)
+
+    mask = np.zeros(len(single_sequence))
+    for i, j in zip(separator, endoftext):
+        np.put(mask, np.arange(i+1, j+1), 1.)
+    return mask
+
+
+def train_step(network, data):
+    src = data[:, :, :-1]
+    tgt = data[:, :, 1:]
+
+    all_masks = []
+    for single_tgt in tgt:
+        mask = find_real_target_mask(np.squeeze(single_tgt))
+        all_masks.append(np.expand_dims(mask, (0, 1)))
+    all_masks = np.concatenate(all_masks, axis=0)
 
     inputs = {
         "obs": data[:, :, :-1],
         "target": data[:, :, 1:],
+        "mask": all_masks
     }
 
     loss, last_loss, grad_norm, grad_norm_micro= network.train(inputs)
