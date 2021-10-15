@@ -106,12 +106,22 @@ def save(network, step, bucket, path, mp, aux=None, keep_n=3, delete_old=True):
 
 
 def train_step(network, data):
+    src = data[:, :, :-1]
+    tgt = data[:, :, 1:]
+    import pdb; pdb.set_trace()
+    separator = np.where(tgt == 14457)
+    endoftext = np.where(tgt == 50256)
+    if separator[0] > endoftext[0]:
+        separator = np.array([0], separator)
+    if separator[-1] > endoftext[-1]:
+        endoftext = np.array(endoftext, [len(tgt)])
+
     inputs = {
         "obs": data[:, :, :-1],
         "target": data[:, :, 1:],
     }
 
-    loss, last_loss, grad_norm, grad_norm_micro, mask = network.train(inputs)
+    loss, last_loss, grad_norm, grad_norm_micro= network.train(inputs)
 
     return (
         np.array(loss).mean(),

@@ -44,7 +44,7 @@ class CausalTransformerShard(hk.Module):
         else:
             self.rpe = None
 
-    def eval(self, context, target, z_loss=0., mask=0.0):
+    def eval(self, context, target, z_loss=0., mask=0.0, seq2seq_mask=None):
         input_len = context.shape[0]
 
         if self.rpe is not None:
@@ -59,10 +59,10 @@ class CausalTransformerShard(hk.Module):
         for l in self.transformer_layers:
             x = x + hk.remat(l)(x, attn_bias)
 
-        return hk.remat(self.proj.loss)(x, target, z_loss)
+        return hk.remat(self.proj.loss)(x, target, z_loss, seq2seq_mask)
 
-    def loss(self, ctx, tgt, z_loss=False, mask=0.0):
-        loss, correct = self.eval(ctx, tgt, float(z_loss), mask=mask)
+    def loss(self, ctx, tgt, z_loss=False, mask=0.0, seq2seq_mask=None):
+        loss, correct = self.eval(ctx, tgt, float(z_loss), mask=mask, seq2seq_mask=seq2seq_mask)
 
         return {
             "loss": loss.mean(),
@@ -131,10 +131,10 @@ class CausalTransformer:
 
             return eval_loss_fn(to_bf16(state["params"]), ctx, tgt, mask)
 
-        def train(state, ctx, tgt):
-            def train_loss(x, y, mask):
+        def train(state, ctx, tgt, seq2seq_mask=None):
+            def train_loss(x, y):
                 transformer = CausalTransformerShard(config)
-                out = transformer.loss(x, y, z_loss=True, mask=mask)
+                out = transformer.loss(x, y, z_loss=True, seq2seq_mask=seq2seq_mask)
 
                 return out["loss"], out["last_loss"]
 
@@ -143,26 +143,19 @@ class CausalTransformer:
             def microbatch(old_grad, batch):
                 ctx, tgt = batch
 
-                separator = jnp.where(tgt == 14457)
-                endoftext = jnp.where(tgt == 50256)
-                if separator[0] > endoftext[0]:
-                    separator = jnp.array([0], separator)
-                if separator[-1] > endoftext[-1]:
-                    endoftext = jnp.array(endoftext, [len(tgt)])
-
                 val_grad_fn = jax.value_and_grad(train_loss_fn, has_aux=True)
-                (loss, last_loss), grad = val_grad_fn(to_bf16(state["params"]), ctx, tgt, mask)
+                (loss, last_loss), grad = val_grad_fn(to_bf16(state["params"]), ctx, tgt)
 
                 new_grad = jax.tree_multimap(lambda a, b: a + b, old_grad, grad)
                 gnorm = global_norm(grad)
-                return new_grad, (loss, last_loss, gnorm, (len(separator), len(endoftext)))
+                return new_grad, (loss, last_loss, gnorm)
 
             if ctx.shape[0] == 1:
                 val_grad_fn = jax.value_and_grad(train_loss_fn, has_aux=True)
                 (loss, last_loss), grad = val_grad_fn(to_bf16(state["params"]), ctx[0], tgt[0])
                 gnorm = global_norm(grad)
             else:
-                grad, (loss, last_loss, gnorm, mask) = jax.lax.scan(microbatch,
+                grad, (loss, last_loss, gnorm) = jax.lax.scan(microbatch,
                                                        jax.tree_map(lambda x: jnp.zeros_like(x).astype(jnp.bfloat16),
                                                                     state["params"]),
                                                        (ctx, tgt))
@@ -177,7 +170,6 @@ class CausalTransformer:
                 "params": optax.apply_updates(state["params"], to_f32(updates)),
                 "step": state["step"] + 1,
                 "opt_state": new_opt_state,
-                "mask": mask
             }
 
         def init(key, x):
