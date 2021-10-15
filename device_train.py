@@ -111,7 +111,9 @@ def train_step(network, data):
         "target": data[:, :, 1:],
     }
 
-    loss, last_loss, grad_norm, grad_norm_micro = network.train(inputs)
+    loss, last_loss, grad_norm, grad_norm_micro, mask = network.train(inputs)
+    print(np.array(mask))
+    import pdb; pdb.set_trace()
 
     return (
         np.array(loss).mean(),

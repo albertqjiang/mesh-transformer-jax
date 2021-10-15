@@ -5,6 +5,7 @@ import argparse
 # Token id: 14457; token: Cambridge
 # We use this token to separate the source and the target
 # It's unlikely to appear in the Isabelle proof corpus as it's the name of a place
+# Token id: 50256; token <|endoftext|>
 
 def process(src_path, tgt_path, output_path):
     with open(src_path) as src_fhand, open(tgt_path) as tgt_fhand, open(output_path, "w") as output_fhand:

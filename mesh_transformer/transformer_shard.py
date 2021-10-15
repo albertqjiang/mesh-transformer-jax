@@ -133,9 +133,9 @@ class CausalTransformer:
             return eval_loss_fn(to_bf16(state["params"]), ctx, tgt, mask)
 
         def train(state, ctx, tgt):
-            def train_loss(x, y):
+            def train_loss(x, y, mask):
                 transformer = CausalTransformerShard(config)
-                out = transformer.loss(x, y, z_loss=True)
+                out = transformer.loss(x, y, z_loss=True, mask=mask)
 
                 return out["loss"], out["last_loss"]
 
@@ -144,19 +144,21 @@ class CausalTransformer:
             def microbatch(old_grad, batch):
                 ctx, tgt = batch
 
+                mask = (tgt == 50256)
+
                 val_grad_fn = jax.value_and_grad(train_loss_fn, has_aux=True)
                 (loss, last_loss), grad = val_grad_fn(to_bf16(state["params"]), ctx, tgt)
 
                 new_grad = jax.tree_multimap(lambda a, b: a + b, old_grad, grad)
                 gnorm = global_norm(grad)
-                return new_grad, (loss, last_loss, gnorm)
+                return new_grad, (loss, last_loss, gnorm, mask)
 
             if ctx.shape[0] == 1:
                 val_grad_fn = jax.value_and_grad(train_loss_fn, has_aux=True)
                 (loss, last_loss), grad = val_grad_fn(to_bf16(state["params"]), ctx[0], tgt[0])
                 gnorm = global_norm(grad)
             else:
-                grad, (loss, last_loss, gnorm) = jax.lax.scan(microbatch,
+                grad, (loss, last_loss, gnorm, mask) = jax.lax.scan(microbatch,
                                                        jax.tree_map(lambda x: jnp.zeros_like(x).astype(jnp.bfloat16),
                                                                     state["params"]),
                                                        (ctx, tgt))
@@ -170,7 +172,8 @@ class CausalTransformer:
             return to_f32(loss), to_f32(last_loss), to_f32(grad_norm), to_f32(grad_norm_micro), {
                 "params": optax.apply_updates(state["params"], to_f32(updates)),
                 "step": state["step"] + 1,
-                "opt_state": new_opt_state
+                "opt_state": new_opt_state,
+                "mask": mask
             }
 
         def init(key, x):
