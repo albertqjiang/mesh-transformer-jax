@@ -131,7 +131,7 @@ class CausalTransformer:
 
             return eval_loss_fn(to_bf16(state["params"]), ctx, tgt, mask)
 
-        def train(state, ctx, tgt, seq2seq_mask=None):
+        def train(state, ctx, tgt, seq2seq_mask):
             def train_loss(x, y):
                 transformer = CausalTransformerShard(config)
                 out = transformer.loss(x, y, z_loss=True, seq2seq_mask=seq2seq_mask)
