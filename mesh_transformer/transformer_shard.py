@@ -44,7 +44,7 @@ class CausalTransformerShard(hk.Module):
         else:
             self.rpe = None
 
-    def eval(self, context, target, z_loss=0., mask=0.0, seq2seq_mask=-9e20):
+    def eval(self, context, target, z_loss=0., mask=0.0, seq2seq_mask=0.0):
         input_len = context.shape[0]
 
         if self.rpe is not None:
@@ -61,7 +61,7 @@ class CausalTransformerShard(hk.Module):
 
         return hk.remat(self.proj.loss)(x, target, z_loss, seq2seq_mask)
 
-    def loss(self, ctx, tgt, z_loss=False, mask=0.0, seq2seq_mask=-9e20):
+    def loss(self, ctx, tgt, z_loss=False, mask=0.0, seq2seq_mask=0.0):
         loss, correct = self.eval(ctx, tgt, float(z_loss), mask=mask, seq2seq_mask=seq2seq_mask)
 
         return {
