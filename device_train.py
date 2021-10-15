@@ -111,7 +111,7 @@ def find_real_target_mask(single_sequence):
     if len(separator) == 0 or (len(endoftext) != 0 and separator[0] > endoftext[0]):
         separator = np.concatenate([[0], separator], axis=0)
     if len(endoftext) == 0 or (len(separator) != 0 and separator[-1] > endoftext[-1]):
-        endoftext = np.concatenate([endoftext, [len(single_sequence)]], axis=0)
+        endoftext = np.concatenate([endoftext, [len(single_sequence)-1]], axis=0)
     assert len(separator) == len(endoftext)
 
     mask = np.zeros(len(single_sequence))
