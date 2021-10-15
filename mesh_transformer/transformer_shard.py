@@ -307,7 +307,7 @@ class CausalTransformer:
         last_loss = np.array(last_loss)
         grad_norm = np.array(grad_norm)
         # print(f"iter done in {time.time() - start:.06}s")
-        return loss.mean(), last_loss.mean(), grad_norm.mean(), grad_norm_micro.mean()
+        return loss.mean(), last_loss.mean(), grad_norm.mean(), grad_norm_micro.mean(), self.state["mask"]
 
     def eval(self, sample):
         # print("eval sample", sample["obs"].shape)
