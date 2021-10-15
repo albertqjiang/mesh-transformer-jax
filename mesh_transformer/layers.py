@@ -566,7 +566,7 @@ class ProjectionShard(hk.Module):
 
         return hk.Flatten()(jnp.transpose(all_proj, (1, 0, 2)))
 
-    def loss(self, x, targets, z_loss=1):
+    def loss(self, x, targets, z_loss=1, seq2seq_mask=None):
         x = f_psum(x)
         x = self.norm(x)
         logits = self.proj(x)
@@ -587,12 +587,13 @@ class ProjectionShard(hk.Module):
         loss = jnp.log(sum_exp_logits) - predicted_logits
 
         loss += (1e-4 * jnp.square(jnp.log(sum_exp_logits)) * z_loss).mean()
-
         correct = (0.0 == predicted_logits)
 
-        accuracy = (jnp.argmax(logits, axis=-1) == jnp.argmax(gt_onehot, axis=-1))
+        if seq2seq_mask:
+            loss = jnp.multiply(loss, seq2seq_mask)
+            correct = jnp.multiply(correct, seq2seq_mask)
 
-        return loss, correct, accuracy
+        return loss, correct
 
 
 class Projection(hk.Module):

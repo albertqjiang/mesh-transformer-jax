@@ -62,14 +62,13 @@ class CausalTransformerShard(hk.Module):
         return hk.remat(self.proj.loss)(x, target, z_loss)
 
     def loss(self, ctx, tgt, z_loss=False, mask=0.0):
-        loss, correct, accuracy = self.eval(ctx, tgt, float(z_loss), mask=mask)
+        loss, correct = self.eval(ctx, tgt, float(z_loss), mask=mask)
 
         return {
             "loss": loss.mean(),
             "last_loss": loss[-1].mean(),
             "all_loss": loss,
             "correct": correct,
-            "accuracy": accuracy.mean()
         }
 
     def generate_initial(self, context, length):
@@ -144,7 +143,13 @@ class CausalTransformer:
             def microbatch(old_grad, batch):
                 ctx, tgt = batch
 
-                mask = (tgt == 50256)
+                separator = jnp.where(tgt == 14457)
+                endoftext = jnp.where(tgt == 50256)
+                if separator[0] > endoftext[0]:
+                    separator = jnp.array([0], separator)
+                if separator[-1] > endoftext[-1]:
+                    endoftext = jnp.array(endoftext, [len(tgt)])
+                assert len(separator) == len(endoftext)
 
                 val_grad_fn = jax.value_and_grad(train_loss_fn, has_aux=True)
                 (loss, last_loss), grad = val_grad_fn(to_bf16(state["params"]), ctx, tgt, mask)

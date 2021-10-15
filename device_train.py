@@ -112,8 +112,6 @@ def train_step(network, data):
     }
 
     loss, last_loss, grad_norm, grad_norm_micro, mask = network.train(inputs)
-    print(np.array(mask))
-    import pdb; pdb.set_trace()
 
     return (
         np.array(loss).mean(),
@@ -132,9 +130,8 @@ def eval_step(network, data):
     out = network.eval(inputs)
     loss = out["loss"]
     correct = out['correct']
-    accuracy = out['accuracy']
 
-    return np.array(loss).mean(), np.array(correct).mean(), np.array(accuracy).mean()
+    return np.array(loss).mean(), np.array(correct).mean()
 
 
 if __name__ == "__main__":
@@ -313,25 +310,20 @@ if __name__ == "__main__":
                 for name, val_set in val_sets.items():
                     val_loss = []
                     val_correct = []
-                    val_accuracy = []
                     for i, _ in tqdm(zip(val_set.sample_once(), range(val_batches)),
                                      desc=f"validation for step {step}, set {name}",
                                      total=val_batches):
-                        val_l, val_c, val_a = eval_step(network, i)
+                        val_l, val_c = eval_step(network, i)
                         val_loss.append(val_l)
                         val_correct.append(val_c)
-                        val_accuracy.append(val_a)
                     val_set.reset()
 
                     val_loss = np.array(val_loss).mean()
                     val_correct = np.array(val_correct).mean()
-                    val_accuracy = np.array(val_accuracy).mean()
-                    print(f"validation loss for step {step}, set {name}: {val_loss}, validation correct: {val_correct},"
-                          f"validation accuracy: {val_accuracy}")
+                    print(f"validation loss for step {step}, set {name}: {val_loss}, validation correct: {val_correct}")
 
                     wandb.log({f'val/loss_{name}': float(val_loss)}, step)
                     wandb.log({f'val/correct_{name}': float(val_correct)}, step)
-                    wandb.log({f'val/acc_{name}': float(val_accuracy)}, step)
 
             if step == total_steps:
                 print("training completed!")
