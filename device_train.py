@@ -106,8 +106,8 @@ def save(network, step, bucket, path, mp, aux=None, keep_n=3, delete_old=True):
 
 
 def find_real_target_mask(single_sequence):
-    separator = np.where(single_sequence == 14457)
-    endoftext = np.where(single_sequence == 50256)
+    separator = np.where(single_sequence == 14457)[0]
+    endoftext = np.where(single_sequence == 50256)[0]
     if separator[0] > endoftext[0]:
         separator = np.array([0], separator)
     if separator[-1] > endoftext[-1]:
