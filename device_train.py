@@ -136,7 +136,7 @@ def train_step(network, data):
         "mask": all_masks
     }
 
-    loss, last_loss, grad_norm, grad_norm_micro= network.train(inputs)
+    loss, last_loss, grad_norm, grad_norm_micro = network.train(inputs)
 
     return (
         np.array(loss).mean(),
