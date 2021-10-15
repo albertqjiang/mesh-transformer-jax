@@ -2,13 +2,17 @@ import os
 import argparse
 
 
+# Token id: 14457; token: Cambridge
+# We use this token to separate the source and the target
+# It's unlikely to appear in the Isabelle proof corpus as it's the name of a place
+
 def process(src_path, tgt_path, output_path):
     with open(src_path) as src_fhand, open(tgt_path) as tgt_fhand, open(output_path, "w") as output_fhand:
         src_lines = src_fhand.readlines()
         tgt_lines = tgt_fhand.readlines()
         for src_line, tgt_line in zip(src_lines, tgt_lines):
             output_fhand.write(
-                src_line.strip().replace("State:", "<ISA_OBS>") + " <ISA_ACT> " + tgt_line.strip() + " <|endoftext|> "
+                src_line.strip().replace("State:", "<ISA_OBS>") + " Cambridge " + tgt_line.strip() + " <|endoftext|> "
             )
 
 
