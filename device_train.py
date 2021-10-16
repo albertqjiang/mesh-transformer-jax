@@ -112,16 +112,17 @@ def find_real_target_mask(single_sequence):
         separator = np.concatenate([[0], separator], axis=0)
     if len(endoftext) == 0 or (len(separator) != 0 and separator[-1] > endoftext[-1]):
         endoftext = np.concatenate([endoftext, [len(single_sequence)-1]], axis=0)
-    assert len(separator) == len(endoftext)
 
     mask = np.zeros(len(single_sequence))
-    for i, j in zip(separator, endoftext):
-        np.put(mask, np.arange(i+1, j+1), 1.)
+    if len(separator) == len(endoftext):
+        for i, j in zip(separator, endoftext):
+            np.put(mask, np.arange(i+1, j+1), 1.)
+    else:
+        print(single_sequence)
     return mask
 
 
 def train_step(network, data):
-    src = data[:, :, :-1]
     tgt = data[:, :, 1:]
 
     all_masks = []
@@ -132,7 +133,7 @@ def train_step(network, data):
 
     inputs = {
         "obs": data[:, :, :-1],
-        "target": data[:, :, 1:],
+        "target": tgt,
         "mask": all_masks
     }
 
