@@ -148,16 +148,24 @@ def train_step(network, data):
 
 
 def eval_step(network, data):
+    tgt = data[:, :, 1:]
+
+    all_masks = []
+    for single_tgt in tgt:
+        mask = find_real_target_mask(np.squeeze(single_tgt))
+        all_masks.append(np.expand_dims(mask, (0, 1)))
+    all_masks = np.concatenate(all_masks, axis=0)
     inputs = {
         "obs": data[:, :-1],
         "target": data[:, 1:],
+        "mask": all_masks
     }
 
     out = network.eval(inputs)
     loss = out["loss"]
     correct = out['correct']
 
-    return np.array(loss).mean(), np.array(correct).mean()
+    return np.array(loss).mean(), np.array(correct).mean() / all_masks.mean()
 
 
 if __name__ == "__main__":

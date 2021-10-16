@@ -120,10 +120,10 @@ class CausalTransformer:
         self.config = config
         optimizer = config["optimizer"]
 
-        def eval(state, ctx, tgt, ctx_length):
+        def eval(state, ctx, tgt, ctx_length, seq2seq_mask):
             def eval_loss(x, y, mask):
                 transformer = CausalTransformerShard(config)
-                return transformer.loss(x, y, mask=mask)
+                return transformer.loss(x, y, mask=mask, seq2seq_mask=seq2seq_mask)
 
             eval_loss_fn = hk.without_apply_rng(hk.transform(eval_loss)).apply
 
