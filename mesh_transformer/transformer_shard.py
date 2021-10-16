@@ -225,6 +225,7 @@ class CausalTransformer:
                                                     in_axes=(["shard", ...],
                                                              ["batch", ...],
                                                              ["batch", ...],
+                                                             ["batch", ...],
                                                              ["batch", ...]),
                                                     out_axes=["batch", ...],
                                                     axis_resources={'shard': 'mp', 'batch': 'dp'})
@@ -318,7 +319,7 @@ class CausalTransformer:
         else:
             ctx_length = np.array([len(sample["obs"][0])] * len(sample["obs"]))
 
-        out = self.eval_xmap(self.state, sample["obs"], sample["target"], ctx_length)
+        out = self.eval_xmap(self.state, sample["obs"], sample["target"], ctx_length, sample["mask"])
         # print(f"eval dispatched in {time.time() - start:.06}s")
 
         # np.array(out["loss"])
