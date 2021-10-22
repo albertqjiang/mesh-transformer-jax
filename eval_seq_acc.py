@@ -67,3 +67,5 @@ if __name__ == "__main__":
             if tgt in processed_response:
                 total_correct_sequences += 1
     print("Sequence accuracy: {}".format(total_correct_sequences/total_sequences))
+    open("seq_acc_results/temp_{}_tokens_{}_n_{}".format(args.temp, args.tokens, args.n), "w").write(
+        str(total_correct_sequences/total_sequences))
