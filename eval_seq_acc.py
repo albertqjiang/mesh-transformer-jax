@@ -51,18 +51,19 @@ if __name__ == "__main__":
     total_correct_sequences, total_sequences = 0, 0
 
     for src in src_selected:
-        tgt = src2tgt[src]
+        if src:
+            tgt = src2tgt[src]
 
-        response = requests.post(url,
-                                 json={"context": src,
-                                       "top_p": 1.0,
-                                       "temp": args.temp,
-                                       "gen_tokens": args.tokens,
-                                       "n": args.n,
-                                       },
-                                 headers=headers)
-        processed_response = get_candidates(response.json())
-        total_sequences += 1
-        if tgt in processed_response:
-            total_correct_sequences += 1
+            response = requests.post(url,
+                                     json={"context": src,
+                                           "top_p": 1.0,
+                                           "temp": args.temp,
+                                           "gen_tokens": args.tokens,
+                                           "n": args.n,
+                                           },
+                                     headers=headers)
+            processed_response = get_candidates(response.json())
+            total_sequences += 1
+            if tgt in processed_response:
+                total_correct_sequences += 1
     print("Sequence accuracy: {}".format(total_correct_sequences/total_sequences))
