@@ -22,21 +22,21 @@
   "tpu_size": 8,
 
   "bucket": "n2formal-public-data-europe",
-  "model_dir": "proper-seq2seq-6B-afp-and-std",
+  "model_dir": "proper-seq2seq-state-only-6B-afp-and-std",
 
-  "train_set": "smaller.train.index",
+  "train_set": "state_only.train.index",
   "val_set": {
-	  "pisa_eval": "smaller.val.index"
+	  "pisa_eval": "state_only.val.index"
   },
 
   "eval_harness_tasks": [],
 
   "val_batches": 100,
-  "val_every": 500,
-  "ckpt_every": 500,
+  "val_every": 1000,
+  "ckpt_every": 1000,
   "keep_every": 10000,
 
-  "name": "proper-seq2seq-6B-afp-and-std",
-  "wandb_project": "mesh-transformer-pisa-proper-seq2seq-6B-afp-and-std",
+  "name": "proper-seq2seq-state-only-6B-afp-and-std",
+  "wandb_project": "mesh-transformer-pisa-proper-seq2seq-state-only-6B-afp-and-std",
   "comment": ""
 }
