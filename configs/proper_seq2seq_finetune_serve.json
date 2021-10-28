@@ -22,7 +22,7 @@
   "tpu_size": 8,
 
   "bucket": "n2formal-public-data-europe",
-  "model_dir": "best-checkpoints",
+  "model_dir": "best-checkpoints/proper-seq2seq-state-only-6B-afp-and-std",
 
   "train_set": "smaller.train.index",
   "val_set": {
