@@ -44,7 +44,9 @@ class CausalTransformerShard(hk.Module):
         else:
             self.rpe = None
 
-    def eval(self, context, target, z_loss=0., mask=0.0, seq2seq_mask=0.0):
+        self.key = hk.PRNGSequence(213)
+
+    def eval(self, context, target, z_loss=0., mask=0.0, seq2seq_mask=0.0, dropout_rate=0.0):
         input_len = context.shape[0]
 
         if self.rpe is not None:
@@ -57,12 +59,13 @@ class CausalTransformerShard(hk.Module):
         x = hk.remat(self.embed)(context)
 
         for l in self.transformer_layers:
-            x = x + hk.remat(l)(x, attn_bias)
+            x = x + hk.dropout(rng=next(self.key), rate=dropout_rate, x=hk.remat(l)(x, attn_bias))
 
         return hk.remat(self.proj.loss)(x, target, z_loss, seq2seq_mask)
 
-    def loss(self, ctx, tgt, z_loss=False, mask=0.0, seq2seq_mask=0.0):
-        loss, correct = self.eval(ctx, tgt, float(z_loss), mask=mask, seq2seq_mask=seq2seq_mask)
+    def loss(self, ctx, tgt, z_loss=False, mask=0.0, seq2seq_mask=0.0, dropout_rate=0.0):
+        loss, correct = self.eval(ctx, tgt, float(z_loss), mask=mask, seq2seq_mask=seq2seq_mask,
+                                  dropout_rate=dropout_rate)
 
         return {
             "loss": loss.mean(),
@@ -119,6 +122,7 @@ class CausalTransformer:
     def __init__(self, config):
         self.config = config
         optimizer = config["optimizer"]
+        dropout_rate = config["dropout_rate"]
 
         def eval(state, ctx, tgt, ctx_length, seq2seq_mask):
             def eval_loss(x, y, mask):
@@ -134,7 +138,7 @@ class CausalTransformer:
         def train(state, ctx, tgt, seq2seq_mask):
             def train_loss(x, y):
                 transformer = CausalTransformerShard(config)
-                out = transformer.loss(x, y, z_loss=True, seq2seq_mask=seq2seq_mask)
+                out = transformer.loss(x, y, z_loss=True, seq2seq_mask=seq2seq_mask, dropout_rate=dropout_rate)
 
                 return out["loss"], out["last_loss"]
 
