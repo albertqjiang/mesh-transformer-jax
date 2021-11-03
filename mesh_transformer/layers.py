@@ -309,7 +309,10 @@ class TransformerLayerShard(hk.Module):
         bias += attn_bias
 
         attn_out = self.self_attn(q, v, k, bias)
-        attn_out = hk.dropout(rng=next(self.key), rate=dropout_rate, x=attn_out)
+        keep_rate = 1.0 - dropout_rate
+        keep = jax.random.bernoulli(next(self.key), keep_rate, shape=attn_out.shape)
+        attn_out = keep * attn_out / keep_rate
+
         dense_out = self.ff(x)
 
         return g_psum(attn_out + dense_out)
