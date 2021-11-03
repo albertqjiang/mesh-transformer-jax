@@ -35,7 +35,8 @@ class CausalTransformerShard(hk.Module):
         init_scale = 2. / layer_count
 
         for i in range(layer_count):
-            self.transformer_layers.append(TransformerLayerShard(config, name=f"layer_{i}", init_scale=init_scale))
+            self.transformer_layers.append(TransformerLayerShard(config, name=f"layer_{i}", init_scale=init_scale,
+                                                                 layer=i))
 
         self.proj = ProjectionShard(config)
 
@@ -43,8 +44,6 @@ class CausalTransformerShard(hk.Module):
             self.rpe = RelativePositionEmbs()
         else:
             self.rpe = None
-
-        self.key = hk.PRNGSequence(213)
 
     def eval(self, context, target, z_loss=0., mask=0.0, seq2seq_mask=0.0, dropout_rate=0.0):
         input_len = context.shape[0]
@@ -59,7 +58,7 @@ class CausalTransformerShard(hk.Module):
         x = hk.remat(self.embed)(context)
 
         for l in self.transformer_layers:
-            x = x + hk.dropout(rng=next(self.key), rate=dropout_rate, x=hk.remat(l)(x, attn_bias))
+            x = x + hk.remat(l)(x, attn_bias, dropout_rate=dropout_rate)
 
         return hk.remat(self.proj.loss)(x, target, z_loss, seq2seq_mask)
 

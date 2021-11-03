@@ -227,13 +227,14 @@ class EmbeddingShardV2(hk.Module):
 
 # We actually combine the FF and dense in one layer (i.e. compute in parallel) to minimize all reduces
 class TransformerLayerShard(hk.Module):
-    def __init__(self, config, name=None, init_scale=1.):
+    def __init__(self, config, name=None, init_scale=1., layer=1):
         super().__init__(name=name)
         heads = config["n_heads"]
         dim = config["d_model"]
         shards = config["cores_per_replica"]
         norm = getnorm(config["norm"])
         self.is_rotary = config["pe"] == "rotary"
+        self.key = hk.PRNGSequence(layer)
 
         assert dim % heads == 0
         assert heads % shards == 0
@@ -296,7 +297,7 @@ class TransformerLayerShard(hk.Module):
 
         return q, v, k
 
-    def __call__(self, x, attn_bias):
+    def __call__(self, x, attn_bias, dropout_rate=0.0):
         x = f_psum(x)
         x = self.norm(x)
 
@@ -308,6 +309,7 @@ class TransformerLayerShard(hk.Module):
         bias += attn_bias
 
         attn_out = self.self_attn(q, v, k, bias)
+        attn_out = hk.dropout(rng=next(self.key), rate=dropout_rate, x=attn_out)
         dense_out = self.ff(x)
 
         return g_psum(attn_out + dense_out)
