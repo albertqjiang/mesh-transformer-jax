@@ -183,10 +183,10 @@ if __name__ == "__main__":
                 print("oops exception")
 
             single_generation_batch = 4 if n > 4 else n
-            for _ in range(n //4):
+            for _ in range(n // 4):
                 all_tokenized = []
                 all_length = []
-                for _ in range(single_generation_batch):
+                for _ in range(4):
                     all_tokenized.append(deepcopy(padded_tokens))
                     all_length.append(length)
 
