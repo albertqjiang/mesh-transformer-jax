@@ -152,10 +152,10 @@ if __name__ == "__main__":
                 temp = o["temp"]
                 gen_tokens = o["gen_tokens"]
 
-                all_ctx = n * [context]
-                all_top_p = n * [top_p]
-                all_temp = n * [temp]
-                all_q = n * [q]
+                # all_ctx = n * [context]
+                # all_top_p = n * [top_p]
+                # all_temp = n * [temp]
+                # all_q = n * [q]
             except Empty:
                 if len(all_ctx):
                     break
@@ -183,12 +183,18 @@ if __name__ == "__main__":
                 print("oops exception")
 
             single_generation_batch = 4 if n > 4 else n
-            for _ in range(n // 4):
+            for _ in range(n // single_generation_batch):
                 all_tokenized = []
                 all_length = []
-                for _ in range(4):
+                all_top_p = []
+                all_temp = []
+                all_q = []
+                for _ in range(single_generation_batch):
                     all_tokenized.append(deepcopy(padded_tokens))
                     all_length.append(length)
+                    all_top_p.append(top_p)
+                    all_temp.append(temp)
+                    all_q.append(q)
 
                 output = network.generate(np.array(all_tokenized),
                                         np.array(all_length),
