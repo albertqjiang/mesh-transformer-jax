@@ -168,13 +168,11 @@ if __name__ == "__main__":
 
             start = time.time()
             
-            
-            ctx = all_ctx[0]
             padded_tokens = np.zeros(seq).astype(np.uint32)
             length = 0
 
             try:
-                tokens = tokenizer.encode(ctx)
+                tokens = tokenizer.encode(context)
                 provided_ctx = len(tokens)
                 pad_amount = seq - provided_ctx
                 pad_amount = max(pad_amount, 0)
