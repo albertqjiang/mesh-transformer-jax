@@ -144,6 +144,7 @@ if __name__ == "__main__":
 
         while True:
             all_ctx = []
+            all_q = []
             try:
                 o, q = requests_queue.get(block=False)
                 n = o["n"]
@@ -162,7 +163,7 @@ if __name__ == "__main__":
                 else:
                     time.sleep(0.01)
 
-            if not all_ctx:
+            if not all_q:
                 continue
 
             start = time.time()
