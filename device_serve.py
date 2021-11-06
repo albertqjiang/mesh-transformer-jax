@@ -185,7 +185,7 @@ if __name__ == "__main__":
             sequences = []
             log_probs_for_sequences = []
             single_generation_batch = 4 if n > 4 else n
-            for _ in range(n // single_generation_batch):
+            for i in range(n // single_generation_batch):
                 all_tokenized = []
                 all_length = []
                 all_top_p = []
