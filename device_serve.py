@@ -155,7 +155,7 @@ if __name__ == "__main__":
                 # all_ctx = n * [context]
                 # all_top_p = n * [top_p]
                 # all_temp = n * [temp]
-                # all_q = n * [q]
+                all_q = n * [q]
             except Empty:
                 if len(all_ctx):
                     break
@@ -182,19 +182,19 @@ if __name__ == "__main__":
             except:
                 print("oops exception")
 
+            sequences = []
+            log_probs_for_sequences = []
             single_generation_batch = 4 if n > 4 else n
             for _ in range(n // single_generation_batch):
                 all_tokenized = []
                 all_length = []
                 all_top_p = []
                 all_temp = []
-                all_q = []
                 for _ in range(single_generation_batch):
                     all_tokenized.append(deepcopy(padded_tokens))
                     all_length.append(length)
                     all_top_p.append(top_p)
                     all_temp.append(temp)
-                    all_q.append(q)
 
                 output = network.generate(np.array(all_tokenized),
                                         np.array(all_length),
@@ -208,9 +208,12 @@ if __name__ == "__main__":
                 log_probs = np.squeeze(jax.nn.log_softmax(output[1][2], -1))
                 indices = output[1][0]
                 selected_log_probs = np.squeeze(np.take_along_axis(log_probs, indices, axis=2))
+                for o, slp in zip(output[1][0][:, :, 0], selected_log_probs):
+                    sequences.append(tokenizer.convert_ids_to_tokens(o))
+                    log_probs_for_sequences.append(slp.tolist())
 
-                for o, q, slp in zip(output[1][0][:, :, 0], all_q, selected_log_probs):
-                    q.put((tokenizer.convert_ids_to_tokens(o), slp.tolist()))
-                    # q.put((tokenizer.decode(o), slp.tolist()))
+            for o, q, slp in zip(sequences, all_q, log_probs_for_sequences):
+                q.put((o, slp))
+                # q.put((tokenizer.decode(o), slp.tolist()))
 
             print(f"completion done in {time.time() - start:06}s")
