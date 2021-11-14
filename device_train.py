@@ -105,20 +105,23 @@ def save(network, step, bucket, path, mp, aux=None, keep_n=20, delete_old=True):
         json.dump(meta, f)
 
 
-def find_real_target_mask(single_sequence):
+def get_mask_one_locations(single_sequence):
     separator = np.where(single_sequence == 14457)[0]
     endoftext = np.where(single_sequence == 50256)[0]
     if len(separator) == 0 or (len(endoftext) != 0 and separator[0] > endoftext[0]):
         separator = np.concatenate([[0], separator], axis=0)
     if len(endoftext) == 0 or (len(separator) != 0 and separator[-1] > endoftext[-1]):
         endoftext = np.concatenate([endoftext, [len(single_sequence)-1]], axis=0)
+    mask_one_locations = [(i+1, j) for i, j in zip(separator, endoftext)]
+    return mask_one_locations
+
+
+def find_real_target_mask(single_sequence):
+    mask_one_locations = get_mask_one_locations(single_sequence)
 
     mask = np.zeros(len(single_sequence))
-    if len(separator) == len(endoftext):
-        for i, j in zip(separator, endoftext):
-            np.put(mask, np.arange(i+1, j+1), 1.)
-    else:
-        print(single_sequence)
+    for i, j in mask_one_locations:
+        np.put(mask, np.arange(i, j+1), 1.)
     return mask
 
 
@@ -152,6 +155,7 @@ def eval_step(network, data):
 
     all_masks = []
     for single_tgt in tgt:
+        mask_one_locations = get_mask_one_locations(single_tgt)
         mask = find_real_target_mask(np.squeeze(single_tgt))
         all_masks.append(np.expand_dims(mask, 0))
     all_masks = np.concatenate(all_masks, axis=0)
@@ -166,7 +170,13 @@ def eval_step(network, data):
     loss = out["loss"]
     correct = out['correct']
 
-    return np.array(loss).mean(), np.array(correct).mean() / all_masks.mean()
+    correct_sequences = 0
+    total_sequences = 0
+    for i, j in mask_one_locations:
+        total_sequences += 1
+        if np.all(correct[0][i:j+1]==1):
+            correct_sequences += 1
+    return np.array(loss).mean(), np.array(correct).mean() / all_masks.mean(), correct_sequences, total_sequences
 
 
 if __name__ == "__main__":
@@ -345,15 +355,19 @@ if __name__ == "__main__":
                 for name, val_set in val_sets.items():
                     val_loss = []
                     val_correct = []
+                    total_correct_seq = 0
+                    total_seq = 0
                     for i, _ in tqdm(zip(val_set.sample_once(), range(val_batches)),
                                      desc=f"validation for step {step}, set {name}",
                                      total=val_batches):
-                        val_l, val_c = eval_step(network, i)
+                        val_l, val_c, val_c_seq, val_total_seq= eval_step(network, i)
                         val_loss.append(val_l)
                         val_correct.append(val_c)
+                        total_correct_seq += val_c_seq
+                        total_seq += val_total_seq
                     val_set.reset()
 
-                    val_seq_correct = (np.array(val_correct) == 1.0).mean()
+                    val_seq_correct = total_correct_seq / total_seq
                     val_loss = np.array(val_loss).mean()
                     val_correct = np.array(val_correct).mean()
                     
