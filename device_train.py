@@ -353,12 +353,15 @@ if __name__ == "__main__":
                         val_correct.append(val_c)
                     val_set.reset()
 
+                    val_seq_correct = (np.array(val_correct) == 1.0).mean()
                     val_loss = np.array(val_loss).mean()
                     val_correct = np.array(val_correct).mean()
-                    print(f"validation loss for step {step}, set {name}: {val_loss}, validation correct: {val_correct}")
+                    
+                    print(f"validation loss for step {step}, set {name}: {val_loss}, validation correct: {val_correct}, validation sequence correct: {val_seq_correct}")
 
                     wandb.log({f'val/loss_{name}': float(val_loss)}, step)
                     wandb.log({f'val/correct_{name}': float(val_correct)}, step)
+                    wandb.log({f'val/seq_correct_{name}': float(val_seq_correct)}, step)
 
             if step == total_steps:
                 print("training completed!")
