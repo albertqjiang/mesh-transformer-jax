@@ -18,6 +18,7 @@
     "end_lr": 1.2e-5,
     "weight_decay": 0.1,
     "total_steps": 350000,
+    "dropout_rate": 0.0,
   
     "tpu_size": 32,
   
