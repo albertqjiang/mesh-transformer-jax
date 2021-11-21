@@ -1,5 +1,7 @@
 import os
 import argparse
+import random
+random.seed(0)
 
 
 # Token id: 14457; token: Cambridge
@@ -11,7 +13,14 @@ def process(src_path, tgt_path, output_path, mode):
     with open(src_path) as src_fhand, open(tgt_path) as tgt_fhand, open(output_path, "w") as output_fhand:
         src_lines = src_fhand.readlines()
         tgt_lines = tgt_fhand.readlines()
-        for src_line, tgt_line in zip(src_lines, tgt_lines):
+
+        total_lines = len(src_lines)
+        random_order = list(range(total_lines))
+        random.shuffle(random_order)
+        for index in random_order:
+            src_line = src_lines[index]
+            tgt_line = tgt_lines[index]
+        
             if mode == "state_only":
                 output_fhand.write(src_line.strip().replace("State:", "<ISA_OBS>") + " Cambridge " + tgt_line.strip() + " <|endoftext|> ")
             elif mode == "proof_only":
