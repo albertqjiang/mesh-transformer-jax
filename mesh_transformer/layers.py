@@ -594,7 +594,10 @@ class ProjectionShard(hk.Module):
         loss += (1e-4 * jnp.square(jnp.log(sum_exp_logits)) * z_loss).mean()
         correct = (0.0 == predicted_logits)
 
-        loss = jnp.multiply(loss, seq2seq_mask)
+        masked_tokens_pct = seq2seq_mask.mean()
+        masked_tokens_pct = jnp.where(masked_tokens_pct < 1e-9, 1, masked_tokens_pct)
+        loss = jnp.multiply(loss, seq2seq_mask) / masked_tokens_pct
+
         correct = jnp.multiply(correct, seq2seq_mask)
 
         return loss, correct
