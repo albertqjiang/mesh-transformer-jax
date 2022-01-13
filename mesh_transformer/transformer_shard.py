@@ -185,7 +185,8 @@ class CausalTransformer:
             return {
                 "params": ("early_cast" in config and to_bf16 or to_f32)(params),
                 "step": np.array(0),
-                "opt_state": optimizer.init(params)
+                "opt_state": optimizer.init(params),
+                "rng": key,
             }
 
         def generate(state, key, ctx, ctx_length, aux, sampler_options):
@@ -245,7 +246,7 @@ class CausalTransformer:
                                                                  ["batch", ...],
                                                                  ["batch", ...],
                                                                  ["batch", ...]),
-                                                        out_axes=["batch", ...],
+                                                        out_axes=(["shard", "batch", ...], ["batch", ...]),
                                                         axis_resources={'shard': 'mp', 'batch': 'dp'})
 
         self.move_xmap = jax.experimental.maps.xmap(fun=lambda x, _: to_bf16(x),
