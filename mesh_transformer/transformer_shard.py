@@ -35,7 +35,8 @@ class CausalTransformerShard(hk.Module):
         init_scale = 2. / layer_count
 
         for i in range(layer_count):
-            self.transformer_layers.append(TransformerLayerShard(config, name=f"layer_{i}", init_scale=init_scale))
+            self.transformer_layers.append(TransformerLayerShard(config, name=f"layer_{i}", init_scale=init_scale,
+                                                                 layer=i))
 
         self.proj = ProjectionShard(config)
 
@@ -44,7 +45,7 @@ class CausalTransformerShard(hk.Module):
         else:
             self.rpe = None
 
-    def eval(self, context, target, z_loss=0., mask=0.0):
+    def eval(self, context, target, z_loss=0., mask=0.0, seq2seq_mask=0.0, dropout_rate=0.0):
         input_len = context.shape[0]
 
         if self.rpe is not None:
@@ -57,19 +58,19 @@ class CausalTransformerShard(hk.Module):
         x = hk.remat(self.embed)(context)
 
         for l in self.transformer_layers:
-            x = x + hk.remat(l)(x, attn_bias)
+            x = x + hk.remat(l)(x, attn_bias, dropout_rate=dropout_rate)
 
-        return hk.remat(self.proj.loss)(x, target, z_loss)
+        return hk.remat(self.proj.loss)(x, target, z_loss, seq2seq_mask)
 
-    def loss(self, ctx, tgt, z_loss=False, mask=0.0):
-        loss, correct, accuracy = self.eval(ctx, tgt, float(z_loss), mask=mask)
+    def loss(self, ctx, tgt, z_loss=False, mask=0.0, seq2seq_mask=0.0, dropout_rate=0.0):
+        loss, correct = self.eval(ctx, tgt, float(z_loss), mask=mask, seq2seq_mask=seq2seq_mask,
+                                  dropout_rate=dropout_rate)
 
         return {
             "loss": loss.mean(),
             "last_loss": loss[-1].mean(),
             "all_loss": loss,
             "correct": correct,
-            "accuracy": accuracy.mean()
         }
 
     def generate_initial(self, context, length):
@@ -120,11 +121,12 @@ class CausalTransformer:
     def __init__(self, config):
         self.config = config
         optimizer = config["optimizer"]
+        dropout_rate = config["dropout_rate"]
 
-        def eval(state, ctx, tgt, ctx_length):
+        def eval(state, ctx, tgt, ctx_length, seq2seq_mask):
             def eval_loss(x, y, mask):
                 transformer = CausalTransformerShard(config)
-                return transformer.loss(x, y, mask=mask)
+                return transformer.loss(x, y, mask=mask, seq2seq_mask=seq2seq_mask)
 
             eval_loss_fn = hk.without_apply_rng(hk.transform(eval_loss)).apply
 
@@ -132,10 +134,10 @@ class CausalTransformer:
 
             return eval_loss_fn(to_bf16(state["params"]), ctx, tgt, mask)
 
-        def train(state, ctx, tgt):
+        def train(state, ctx, tgt, seq2seq_mask):
             def train_loss(x, y):
                 transformer = CausalTransformerShard(config)
-                out = transformer.loss(x, y, z_loss=True)
+                out = transformer.loss(x, y, z_loss=True, seq2seq_mask=seq2seq_mask, dropout_rate=dropout_rate)
 
                 return out["loss"], out["last_loss"]
 
@@ -170,7 +172,7 @@ class CausalTransformer:
             return to_f32(loss), to_f32(last_loss), to_f32(grad_norm), to_f32(grad_norm_micro), {
                 "params": optax.apply_updates(state["params"], to_f32(updates)),
                 "step": state["step"] + 1,
-                "opt_state": new_opt_state
+                "opt_state": new_opt_state,
             }
 
         def init(key, x):
@@ -227,12 +229,14 @@ class CausalTransformer:
                                                     in_axes=(["shard", ...],
                                                              ["batch", ...],
                                                              ["batch", ...],
+                                                             ["batch", ...],
                                                              ["batch", ...]),
                                                     out_axes=["batch", ...],
                                                     axis_resources={'shard': 'mp', 'batch': 'dp'})
 
         self.train_xmap = jax.experimental.maps.xmap(fun=train,
                                                      in_axes=(["shard", ...],
+                                                              ["batch", ...],
                                                               ["batch", ...],
                                                               ["batch", ...]),
                                                      out_axes=(["batch", ...], ["batch", ...], ["batch", ...], ["batch", ...], ["shard", ...]),
@@ -293,6 +297,7 @@ class CausalTransformer:
         # print("target", sample["target"])
         obs = jnp.transpose(sample["obs"], (1, 0, 2))
         target = jnp.transpose(sample["target"], (1, 0, 2))
+        mask = jnp.transpose(sample["mask"], (1, 0, 2))
 
         # print("train sample", obs.shape)
         # print("train target", target.shape)
@@ -300,7 +305,7 @@ class CausalTransformer:
         # assert (sample["obs"][:, 1:] == sample["target"][:, -1])
 
         # start = time.time()
-        loss, last_loss, grad_norm, grad_norm_micro, self.state = self.train_xmap(self.state, obs, target)
+        loss, last_loss, grad_norm, grad_norm_micro, self.state = self.train_xmap(self.state, obs, target, mask)
         loss = np.array(loss)
         last_loss = np.array(last_loss)
         grad_norm = np.array(grad_norm)
@@ -318,7 +323,7 @@ class CausalTransformer:
         else:
             ctx_length = np.array([len(sample["obs"][0])] * len(sample["obs"]))
 
-        out = self.eval_xmap(self.state, sample["obs"], sample["target"], ctx_length)
+        out = self.eval_xmap(self.state, sample["obs"], sample["target"], ctx_length, sample["mask"])
         # print(f"eval dispatched in {time.time() - start:.06}s")
 
         # np.array(out["loss"])

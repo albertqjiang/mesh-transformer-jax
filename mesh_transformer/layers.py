@@ -227,13 +227,14 @@ class EmbeddingShardV2(hk.Module):
 
 # We actually combine the FF and dense in one layer (i.e. compute in parallel) to minimize all reduces
 class TransformerLayerShard(hk.Module):
-    def __init__(self, config, name=None, init_scale=1.):
+    def __init__(self, config, name=None, init_scale=1., layer=1):
         super().__init__(name=name)
         heads = config["n_heads"]
         dim = config["d_model"]
         shards = config["cores_per_replica"]
         norm = getnorm(config["norm"])
         self.is_rotary = config["pe"] == "rotary"
+        self.key = hk.PRNGSequence(layer)
 
         assert dim % heads == 0
         assert heads % shards == 0
@@ -296,7 +297,7 @@ class TransformerLayerShard(hk.Module):
 
         return q, v, k
 
-    def __call__(self, x, attn_bias):
+    def __call__(self, x, attn_bias, dropout_rate=0.0):
         x = f_psum(x)
         x = self.norm(x)
 
@@ -308,6 +309,10 @@ class TransformerLayerShard(hk.Module):
         bias += attn_bias
 
         attn_out = self.self_attn(q, v, k, bias)
+        keep_rate = 1.0 - dropout_rate
+        keep = jax.random.bernoulli(next(self.key), keep_rate, shape=attn_out.shape)
+        attn_out = keep * attn_out / keep_rate
+
         dense_out = self.ff(x)
 
         return g_psum(attn_out + dense_out)
@@ -566,7 +571,7 @@ class ProjectionShard(hk.Module):
 
         return hk.Flatten()(jnp.transpose(all_proj, (1, 0, 2)))
 
-    def loss(self, x, targets, z_loss=1):
+    def loss(self, x, targets, z_loss=1, seq2seq_mask=0.0):
         x = f_psum(x)
         x = self.norm(x)
         logits = self.proj(x)
@@ -587,12 +592,15 @@ class ProjectionShard(hk.Module):
         loss = jnp.log(sum_exp_logits) - predicted_logits
 
         loss += (1e-4 * jnp.square(jnp.log(sum_exp_logits)) * z_loss).mean()
-
         correct = (0.0 == predicted_logits)
 
-        accuracy = (jnp.argmax(logits, axis=-1) == jnp.argmax(gt_onehot, axis=-1))
+        masked_tokens_pct = seq2seq_mask.mean()
+        masked_tokens_pct = jnp.where(masked_tokens_pct < 1e-9, 1, masked_tokens_pct)
+        loss = jnp.multiply(loss, seq2seq_mask) / masked_tokens_pct
 
-        return loss, correct, accuracy
+        correct = jnp.multiply(correct, seq2seq_mask)
+
+        return loss, correct
 
 
 class Projection(hk.Module):

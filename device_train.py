@@ -47,7 +47,7 @@ def parse_args():
     return args
 
 
-def save(network, step, bucket, path, mp, aux=None, keep_n=3, delete_old=True):
+def save(network, step, bucket, path, mp, aux=None, keep_n=20, delete_old=True):
     assert path
     client = storage.Client()
 
@@ -105,10 +105,39 @@ def save(network, step, bucket, path, mp, aux=None, keep_n=3, delete_old=True):
         json.dump(meta, f)
 
 
+def get_mask_one_locations(single_sequence):
+    separator = np.where(single_sequence == 14457)[0]
+    endoftext = np.where(single_sequence == 50256)[0]
+    if len(separator) == 0 or (len(endoftext) != 0 and separator[0] > endoftext[0]):
+        separator = np.concatenate([[0], separator], axis=0)
+    if len(endoftext) == 0 or (len(separator) != 0 and separator[-1] > endoftext[-1]):
+        endoftext = np.concatenate([endoftext, [len(single_sequence)-1]], axis=0)
+    mask_one_locations = [(i+1, j) for i, j in zip(separator, endoftext)]
+    return mask_one_locations
+
+
+def find_real_target_mask(single_sequence):
+    mask_one_locations = get_mask_one_locations(single_sequence)
+
+    mask = np.zeros(len(single_sequence))
+    for i, j in mask_one_locations:
+        np.put(mask, np.arange(i, j+1), 1.)
+    return mask
+
+
 def train_step(network, data):
+    tgt = data[:, :, 1:]
+
+    all_masks = []
+    for single_tgt in tgt:
+        mask = find_real_target_mask(np.squeeze(single_tgt))
+        all_masks.append(np.expand_dims(mask, (0, 1)))
+    all_masks = np.concatenate(all_masks, axis=0)
+
     inputs = {
         "obs": data[:, :, :-1],
-        "target": data[:, :, 1:],
+        "target": tgt,
+        "mask": all_masks
     }
 
     loss, last_loss, grad_norm, grad_norm_micro = network.train(inputs)
@@ -122,17 +151,32 @@ def train_step(network, data):
 
 
 def eval_step(network, data):
+    tgt = data[:, 1:]
+
+    all_masks = []
+    for single_tgt in tgt:
+        mask_one_locations = get_mask_one_locations(single_tgt)
+        mask = find_real_target_mask(np.squeeze(single_tgt))
+        all_masks.append(np.expand_dims(mask, 0))
+    all_masks = np.concatenate(all_masks, axis=0)
+
     inputs = {
         "obs": data[:, :-1],
-        "target": data[:, 1:],
+        "target": tgt,
+        "mask": all_masks
     }
 
     out = network.eval(inputs)
     loss = out["loss"]
     correct = out['correct']
-    accuracy = out['accuracy']
 
-    return np.array(loss).mean(), np.array(correct).mean(), np.array(accuracy).mean()
+    correct_sequences = 0
+    total_sequences = 0
+    for i, j in mask_one_locations:
+        total_sequences += 1
+        if np.all(correct[0][i:j+1]==1):
+            correct_sequences += 1
+    return np.array(loss).mean(), np.array(correct).mean() / all_masks.mean(), correct_sequences, total_sequences
 
 
 if __name__ == "__main__":
@@ -311,25 +355,27 @@ if __name__ == "__main__":
                 for name, val_set in val_sets.items():
                     val_loss = []
                     val_correct = []
-                    val_accuracy = []
+                    total_correct_seq = 0
+                    total_seq = 0
                     for i, _ in tqdm(zip(val_set.sample_once(), range(val_batches)),
                                      desc=f"validation for step {step}, set {name}",
                                      total=val_batches):
-                        val_l, val_c, val_a = eval_step(network, i)
+                        val_l, val_c, val_c_seq, val_total_seq= eval_step(network, i)
                         val_loss.append(val_l)
                         val_correct.append(val_c)
-                        val_accuracy.append(val_a)
+                        total_correct_seq += val_c_seq
+                        total_seq += val_total_seq
                     val_set.reset()
 
+                    val_seq_correct = total_correct_seq / total_seq
                     val_loss = np.array(val_loss).mean()
                     val_correct = np.array(val_correct).mean()
-                    val_accuracy = np.array(val_accuracy).mean()
-                    print(f"validation loss for step {step}, set {name}: {val_loss}, validation correct: {val_correct},"
-                          f"validation accuracy: {val_accuracy}")
+                    
+                    print(f"validation loss for step {step}, set {name}: {val_loss}, validation correct: {val_correct}, validation sequence correct: {val_seq_correct}")
 
                     wandb.log({f'val/loss_{name}': float(val_loss)}, step)
                     wandb.log({f'val/correct_{name}': float(val_correct)}, step)
-                    wandb.log({f'val/acc_{name}': float(val_accuracy)}, step)
+                    wandb.log({f'val/seq_correct_{name}': float(val_seq_correct)}, step)
 
             if step == total_steps:
                 print("training completed!")

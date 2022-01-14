@@ -3,6 +3,7 @@ import json
 import threading
 import time
 from queue import Queue, Empty
+from copy import deepcopy
 
 import jax
 import numpy as np
@@ -143,6 +144,7 @@ if __name__ == "__main__":
 
         while True:
             all_ctx = []
+            all_q = []
             try:
                 o, q = requests_queue.get(block=False)
                 n = o["n"]
@@ -151,9 +153,9 @@ if __name__ == "__main__":
                 temp = o["temp"]
                 gen_tokens = o["gen_tokens"]
 
-                all_ctx = n * [context]
-                all_top_p = n * [top_p]
-                all_temp = n * [temp]
+                # all_ctx = n * [context]
+                # all_top_p = n * [top_p]
+                # all_temp = n * [temp]
                 all_q = n * [q]
             except Empty:
                 if len(all_ctx):
@@ -161,46 +163,56 @@ if __name__ == "__main__":
                 else:
                     time.sleep(0.01)
 
-            if not all_ctx:
+            if not all_q:
                 continue
 
             start = time.time()
-            all_tokenized = []
-            all_length = []
-            for ctx in all_ctx:
-                padded_tokens = np.zeros(seq).astype(np.uint32)
-                length = 0
+            
+            padded_tokens = np.zeros(seq).astype(np.uint32)
+            length = 0
 
-                try:
-                    tokens = tokenizer.encode(ctx)
-                    provided_ctx = len(tokens)
-                    pad_amount = seq - provided_ctx
+            try:
+                tokens = tokenizer.encode(context)
+                provided_ctx = len(tokens)
+                pad_amount = seq - provided_ctx
+                pad_amount = max(pad_amount, 0)
+                padded_tokens = np.pad(tokens, ((pad_amount, 0),)).astype(np.uint32)[-seq:]
+                length = len(tokens)
+            except:
+                print("oops exception")
 
-                    pad_amount = max(pad_amount, 0)
+            sequences = []
+            log_probs_for_sequences = []
+            single_generation_batch = 4 if n > 4 else n
+            for i in range(n // single_generation_batch):
+                all_tokenized = []
+                all_length = []
+                all_top_p = []
+                all_temp = []
+                for _ in range(single_generation_batch):
+                    all_tokenized.append(deepcopy(padded_tokens))
+                    all_length.append(length)
+                    all_top_p.append(top_p)
+                    all_temp.append(temp)
 
-                    padded_tokens = np.pad(tokens, ((pad_amount, 0),)).astype(np.uint32)[-seq:]
-                    length = len(tokens)
-                except:
-                    print("oops exception")
+                output = network.generate(np.array(all_tokenized),
+                                        np.array(all_length),
+                                        gen_tokens,
+                                        {
+                                            "top_p": np.array(all_top_p),
+                                            "temp": np.array(all_temp)
+                                        },
+                                        return_logits=True)
 
-                all_tokenized.append(padded_tokens)
-                all_length.append(length)
+                log_probs = np.squeeze(jax.nn.log_softmax(output[1][2], -1))
+                indices = output[1][0]
+                selected_log_probs = np.squeeze(np.take_along_axis(log_probs, indices, axis=2))
+                for o, slp in zip(output[1][0][:, :, 0], selected_log_probs):
+                    sequences.append(tokenizer.convert_ids_to_tokens(o))
+                    log_probs_for_sequences.append(slp.tolist())
 
-            output = network.generate(np.array(all_tokenized),
-                                      np.array(all_length),
-                                      gen_tokens,
-                                      {
-                                          "top_p": np.array(all_top_p),
-                                          "temp": np.array(all_temp)
-                                      },
-                                      return_logits=True)
-
-            log_probs = np.squeeze(jax.nn.log_softmax(output[1][2], -1))
-            indices = output[1][0]
-            selected_log_probs = np.squeeze(np.take_along_axis(log_probs, indices, axis=2))
-
-            for o, q, slp in zip(output[1][0][:, :, 0], all_q, selected_log_probs):
-                q.put((tokenizer.convert_ids_to_tokens(o), slp.tolist()))
+            for o, q, slp in zip(sequences, all_q, log_probs_for_sequences):
+                q.put((o, slp))
                 # q.put((tokenizer.decode(o), slp.tolist()))
 
             print(f"completion done in {time.time() - start:06}s")
